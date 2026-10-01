@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Prototype persistence. These directories hold real tBCH (test-network) private
+# keys in data/wallet.json, so they must never be committed. Every E2E script
+# creates its own directory here; keep this list covering all of them.
+data/
+data_chipnet_e2e/
+data_chipnet_vault_e2e/
+data_diag/
+
+# Throwaway scratch files produced while debugging
+diag_out.txt
+diag_err.txt
+topup_block.txt
+
+# Work-in-progress scripts, kept on disk but not published. The fixture
+# generator is still blocked on contracts/identity_vault.cash:80; use
+# `git add -f` if you ever want to commit it.
+scripts/__fixgen.mjs
+scripts/gen-indexer-fixtures.mjs
+
+# Logs
+*.log
+
+# Local agent memory (not published; see tasks.md TASK-047)
+agents.md
+
+# Planning artifacts and borrowed design references kept outside the
+# published tree (retained locally, never committed)
+repid-sdd/
+references/
+
+# OS files
+.DS_Store
+Thumbs.db

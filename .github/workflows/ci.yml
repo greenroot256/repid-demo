@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The demo depends on the SDK through `file:../repid-sdk`, so the suite is
+      # only meaningful when the sibling repository is actually present. Without
+      # this step `npm ci` happily succeeds, the symlink points at nothing, and
+      # the failure surfaces as a runtime "Cannot find package '@repid/sdk'" in
+      # whichever test imports it first -- a message that says nothing about the
+      # real cause.
+      #
+      # The URL is not guessed and has no default: a workflow that fell back to
+      # the wrong checkout would report a green suite that tested nothing. The
+      # repository is public, so no credentials are involved.
+      #
+      # This step exists only because the package is not on npm yet. Once
+      # @repid/sdk is published, package.json moves to a version range, this step
+      # and the build step below are deleted, and the normal npm path takes over.
+      - name: Check out the SDK repository
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/greenroot256/repid-sdk.git ../repid-sdk
+          rm -rf ../repid-sdk/.git
+
+      # The clone is source only: dist/ is not committed. The demo imports the
+      # compiled entry points through the package exports, so the SDK has to be
+      # built before the demo can load it.
+      - name: Build the SDK
+        run: |
+          set -euo pipefail
+          cd ../repid-sdk
+          npm ci
+          npm run build
+
+      - run: npm ci
+      - run: npm test

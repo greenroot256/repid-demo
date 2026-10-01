@@ -1,0 +1,20 @@
+# Normalize line endings on checkin, keep LF in the working tree.
+# Without this file Git converts LF to CRLF on Windows and rewrites the files
+# on every touch, which produced spurious "LF will be replaced by CRLF"
+# warnings on every commit.
+* text=auto eol=lf
+
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.ts   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.cash text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.yml  text eol=lf
+*.svg  text eol=lf
+*.txt  text eol=lf
+
+# Binary assets
+*.png  binary

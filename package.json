@@ -1,0 +1,29 @@
+{
+  "name": "repid",
+  "version": "1.0.0",
+  "description": "RepID - a decentralized reputation protocol prototype on Bitcoin Cash (CashTokens + CashScript). This repository is the reference implementation and demo server. Fact recognition lives in the @repid/sdk package, and the protocol itself is specified in the repid-protocol repository.",
+  "main": "server/index.js",
+  "type": "module",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "vitest run",
+    "test:e2e": "vitest run test/e2e_server.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
+    "@electrum-cash/network": "4.2.2",
+    "@repid/sdk": "file:../repid-sdk",
+    "cashscript": "^0.13.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "cashc": "^0.13.2",
+    "vitest": "^4.1.11"
+  }
+}

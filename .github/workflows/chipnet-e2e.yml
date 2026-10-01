@@ -1,0 +1,64 @@
+name: chipnet-e2e
+
+# Reproduces the real TASK-026 run (validation against the Bitcoin VM) on the
+# Chipnet test network. It's manual on purpose: it requires funding the test
+# wallet with tBCH from the faucet (tbch.googol.cash, captcha), which can't be
+# automated. If there are no funds, the script exits with code 2 showing the
+# address to fund. The test wallet keys are uploaded as an artifact so a retry
+# doesn't lose the tBCH.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  chipnet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Same sibling checkout as the CI workflow: the demo resolves
+      # @repid/sdk through `file:../repid-sdk`, and dist/ is not committed, so
+      # the repository has to be cloned next to the demo and built before npm ci.
+      # See .github/workflows/ci.yml for the reasoning behind each part.
+      - name: Check out the SDK repository
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/greenroot256/repid-sdk.git ../repid-sdk
+          rm -rf ../repid-sdk/.git
+
+      - name: Build the SDK
+        run: |
+          set -euo pipefail
+          cd ../repid-sdk
+          npm ci
+          npm run build
+
+      - run: npm ci
+
+      - name: Restore wallets from a previous run (if artifact exists)
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: data_chipnet_e2e
+          path: data_chipnet_e2e
+          if_no_artifact_found: warn
+          workflow_conclusion: completed
+
+      - name: Run Chipnet E2E (needs tBCH in the data dir or from the faucet)
+        env:
+          REPID_NETWORK: chipnet
+          REPID_DATA_DIR: ${{ github.workspace }}/data_chipnet_e2e
+        run: node scripts/chipnet-e2e.mjs
+
+      - name: Preserve test wallets (tBCH) as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_chipnet_e2e
+          path: data_chipnet_e2e
+          if-no-files-found: ignore

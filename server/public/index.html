@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RepID — live ledger</title>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('repid-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-top">
+      <div class="brand">
+        <img class="brand-mark for-dark" src="logo-dark.png" alt="RepID seal for dark background" />
+        <img class="brand-mark for-light" src="logo-light.png" alt="RepID seal for light background" />
+        <h1 class="brand-name">RepID</h1>
+      </div>
+      <button class="theme-toggle" type="button" aria-label="Toggle theme">
+        <span class="dot"></span>
+        <span id="theme-label">Light mode</span>
+      </button>
+    </div>
+    <div class="masthead-sub">
+      <p class="masthead-intro">Identities, interactions and ratings, minted live in this session.</p>
+      <p class="network-tag" id="network-tag"></p>
+    </div>
+  </div>
+</header>
+
+<nav class="view-nav" role="tablist" aria-label="Site navigation">
+  <div class="view-nav-inner">
+    <button class="view" data-view="wallets" role="tab" aria-selected="false">Wallets</button>
+    <button class="view active" data-view="console" role="tab" aria-selected="true">Console</button>
+    <button class="view" data-view="app" role="tab" aria-selected="false">Example app</button>
+    <button class="view" data-view="indexer" role="tab" aria-selected="false">Indexer</button>
+    <button class="view" data-view="identities" role="tab" aria-selected="false">Identities</button>
+  </div>
+</nav>
+
+<div class="view-wrap" id="view-wallets">
+<main class="wallets-page page">
+
+  <section class="app-header">
+    <h2>Wallets — accounts, balances and sats</h2>
+    <p class="hint">Each wallet is a prototype test keypair on the Chipnet test network. They are born empty and you must request tBCH from the faucet (<code>tbch.googol.cash</code>) to pay fees. Here you create them, import your base wallet, name them, move sats between them and, when done, sweep everything back to the primary.</p>
+  </section>
+
+  <div class="wallets-grid">
+
+    <div class="wallets-col">
+      <div class="panel">
+        <h2>Create Wallet</h2>
+        <p class="hint">Each wallet is a test keypair for this demo on the Chipnet test network. Wallets are born empty and you must request tBCH from the faucet to pay fees.</p>
+        <button data-action="create-wallet" class="btn-primary">Create wallet</button>
+      </div>
+
+      <div class="panel">
+        <h2>Import Wallet</h2>
+        <p class="hint">Paste your private keys (<strong>64-hex</strong> or <strong>WIF</strong>, one per line) to always use your same base wallet on Chipnet. They are persisted and reappear on restart.</p>
+        <textarea id="import-keys" rows="4" placeholder="hex or WIF key per line..."></textarea>
+        <button data-action="import-wallets">Import</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Transfer Sats</h2>
+      <p class="hint">In Chipnet it splits tBCH between your wallets: fund one with the faucet and transfer to the others. The transfer is P2PKH → P2PKH without OP_RETURN: it moves balance but <strong>creates no RepID fact</strong>.</p>
+      <label>From
+        <select id="transfer-from"></select>
+      </label>
+      <label>To
+        <select id="transfer-to"></select>
+      </label>
+      <label>Amount (sats, minimum 546)
+        <input type="number" id="transfer-amount" min="546" placeholder="e.g. 20000" />
+      </label>
+      <button data-action="transfer-sats">Transfer</button>
+    </div>
+
+    <div class="panel panel-wallets-manage">
+      <h2>Manage Wallets</h2>
+      <p class="hint">Your wallets in a table: wallet, alias (local, off-chain — not a fact) and balance. Then mark the primary and sweep the sats of the secondaries.</p>
+      <div class="wallet-thead" aria-hidden="true">
+        <span>Wallet</span>
+        <span>Alias</span>
+        <span>Balance</span>
+      </div>
+      <ul class="wallet-list" id="wallet-list"></ul>
+      <label>Primary wallet
+        <select id="primary-select"></select>
+      </label>
+      <button data-action="set-primary">Mark as primary</button>
+      <button data-action="sweep-to-primary" class="danger">Sweep all to primary</button>
+      <label class="check"><input type="checkbox" id="burn-on-sweep" checked /> Burn identities to release collateral</label>
+      <p class="hint">The button sweeps the sats of all secondary wallets to the primary. With the checkbox enabled it first deletes every identity (the collateral returns to its wallet and falls in the sweep). Unspent Rating Rights are not touched.</p>
+    </div>
+
+  </div>
+
+</main>
+</div>
+
+<div class="view-wrap active" id="view-console">
+<main class="console page">
+
+  <div class="console-toolbar">
+    <p class="hint tool-hint">Console — the protocol step by step: each action on the left mints an on-chain fact that the Ledger on the right rebuilds instantly.</p>
+    <div class="toolbar-actions">
+      <button data-action="run-demo">Play demo</button>
+      <button data-action="reset-demo" class="danger">Reset demo</button>
+    </div>
+  </div>
+
+  <section class="actions" aria-label="Actions">
+
+    <h2 class="flow-title">Protocol flow</h2>
+
+    <div class="panel protocol-step">
+      <div class="step-head"><span class="step-num">01</span><h3>Mint identity</h3></div>
+      <p class="hint">RFC-001 — anchors an immutable NFT to the chosen wallet. The vault covenant locks a BCH collateral: it can never go down on-chain, it can be increased and it returns when the identity is deleted.</p>
+      <label>Wallet
+        <select id="identity-owner"></select>
+      </label>
+      <label>Collateral (sats)
+        <input type="number" id="identity-collateral" min="1" value="1000" />
+      </label>
+      <button data-action="mint-identity" class="btn-primary">Mint identity</button>
+      <label>Increase collateral (sats)
+        <input type="number" id="identity-topup-amount" min="1" placeholder="e.g. 500" />
+      </label>
+      <button data-action="increase-collateral">Increase collateral</button>
+      <button data-action="burn-identity" class="danger">Delete identity</button>
+    </div>
+
+    <div class="panel protocol-step">
+      <div class="step-head"><span class="step-num">02</span><h3>Record interaction</h3></div>
+      <p class="hint">RFC-002/003/004 — defines explicit roles, requires both parties' signatures; issues an Interaction Receipt and two Rating Rights.</p>
+      <label>Party A
+        <select id="interaction-party-a"></select>
+      </label>
+      <label>Role of A
+        <input type="text" id="interaction-role-a" placeholder="e.g. passenger" />
+      </label>
+      <label>Party B
+        <select id="interaction-party-b"></select>
+      </label>
+      <label>Role of B
+        <input type="text" id="interaction-role-b" placeholder="e.g. driver" />
+      </label>
+      <button data-action="create-interaction" class="btn-primary">Record interaction</button>
+    </div>
+
+    <div class="panel protocol-step">
+      <div class="step-head"><span class="step-num">03</span><h3>Issue rating</h3></div>
+      <p class="hint">RFC-004 — spends a covenant-less Rating Right; the NFT is burned since it never reappears in any output.</p>
+      <label>Rating Right
+        <select id="rating-right"></select>
+      </label>
+      <label>Score
+        <input type="range" id="rating-score" min="1" max="5" step="1" value="3" />
+        <output id="rating-score-output">3</output>
+      </label>
+      <button data-action="issue-rating" class="btn-primary">Issue rating</button>
+    </div>
+
+    <div class="panel protocol-step">
+      <div class="step-head"><span class="step-num">04</span><h3>Confirm interaction</h3></div>
+      <p class="hint">SPEC-003 / RF-06 — the platform corroborates that an interaction happened: it spends its own UTXO with an OP_RETURN referencing the Receipt. Standalone fact, without minting an Identity.</p>
+      <label>Platform (wallet)
+        <select id="platform-pkh"></select>
+      </label>
+      <label>Interaction to confirm
+        <select id="platform-receipt"></select>
+      </label>
+      <button data-action="create-platform-confirmation" class="btn-primary">Confirm interaction</button>
+    </div>
+
+    <div class="panel protocol-step">
+      <div class="step-head"><span class="step-num">05</span><h3>Declare trust</h3></div>
+      <p class="hint">SPEC-006 — unilateral declaration: the wallet on the left declares on-chain that it trusts the one on the right (without its consent, without Rating Rights).</p>
+      <label>Who trusts (truster)
+        <select id="trust-trust"></select>
+      </label>
+      <label>In whom (trusted)
+        <select id="trust-trusted"></select>
+      </label>
+      <button data-action="create-trust-link" class="btn-primary">Declare trust</button>
+    </div>
+
+  </section>
+
+  <section class="ledger" aria-label="Protocol ledger">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="ledger" role="tab" aria-selected="true">Ledger</button>
+      <button class="tab" data-tab="indexer" role="tab" aria-selected="false">Indexer view</button>
+      <button class="tab" data-tab="reputation" role="tab" aria-selected="false">Reputation</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-ledger">
+      <p class="hint">Every fact rebuilt by the indexer (RFC-006), in order of appearance.</p>
+      <ol class="fact-log" id="fact-log">
+        <li class="fact-empty">No facts yet. Create a wallet to start.</li>
+      </ol>
+    </div>
+
+    <div class="tab-panel" id="tab-indexer">
+      <p class="hint">This is how the indexer "hears" the network and processes each transaction: the raw hex arrives, it decodes and decides whether it matches a RepID shape. What doesn't match is discarded without touching the Ledger.</p>
+      <button data-action="send-foreign">Send unknown transaction</button>
+
+      <h3>Node feed (raw transactions)</h3>
+      <ol class="raw-feed" id="raw-feed">
+        <li class="fact-empty">No transaction has arrived yet.</li>
+      </ol>
+
+      <h3>Indexer internal state</h3>
+      <h4>Rating Rights under tracking</h4>
+      <ul class="store-list" id="indexer-rating-rights">
+        <li>None.</li>
+      </ul>
+      <h4>Receipts in the index</h4>
+      <ul class="store-list" id="indexer-receipts">
+        <li>None.</li>
+      </ul>
+      <h4>Identities under tracking (covenant vault)</h4>
+      <ul class="store-list" id="indexer-identities">
+        <li>None.</li>
+      </ul>
+      <p class="hint" id="indexer-store-file"></p>
+    </div>
+
+    <div class="tab-panel" id="tab-reputation">
+      <p class="hint">Reputation is off-chain interpretation (built from the indexed facts, unweighted). Every number can be audited down to the transaction that produced it.</p>
+      <label>Pick a wallet
+        <select id="reputation-pkh"></select>
+      </label>
+      <button data-action="show-reputation" class="btn-primary">View profile</button>
+      <div id="reputation-card" class="reputation-empty">Pick a wallet and click "View profile".</div>
+      <p class="hint">Unweighted average — weighting and anti-sybil policies stay in the reputation layer (out of scope, see SPEC-006).</p>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<div class="view-wrap" id="view-app">
+<main class="app-page page">
+
+  <section class="app-header">
+    <h2>Example app — delivery for two users</h2>
+    <p class="hint">Mini <strong>delivery</strong> platform on the raw RepID API, with <strong>two simultaneous users</strong> (Client and Rider) sharing the same chain. Order, Receipt, ratings and endorsements are anchored fact by fact.</p>
+    <details class="app-how">
+      <summary>How does this demo work?</summary>
+      <p class="hint">The client <strong>requests a service</strong> (their signature is captured in the request) and the rider receives a <strong>ride-available notification</strong>; upon <strong>accepting</strong> it, their signature joins the client's and the <strong>on-chain Receipt</strong> is anchored (the interaction). Then <strong>each party rates the other</strong> with its Rating Right (one per side, single use). Below, the identities surrounding the interaction: the <strong>platform that validates</strong> the ride happened and a trust identity (<strong>friend, ex-boss or coworker</strong>) giving its <strong>trust vote</strong> on either of them. Go back to the <strong>Console</strong> to see the protocol behind it in real time (Ledger and Indexer view).</p>
+    </details>
+  </section>
+
+  <div class="duo">
+
+    <section class="duo-slot slot-client">
+      <h3><span class="slot-badge">USER 1</span>Client</h3>
+      <label>Wallet acting as client
+        <select id="app-client"></select>
+      </label>
+
+      <div class="app-step">
+        <h4><span class="step-num">1</span>Request a service</h4>
+        <p class="hint">The client requests the service and their <strong>signature is captured</strong> in the request ("client signature ✓" badge). Nothing is anchored on-chain yet: the Receipt is born only when the rider accepts.</p>
+        <label>Route
+          <select id="app-task">
+            <option value="food delivery order">Food delivery order</option>
+            <option value="express package">Express package</option>
+            <option value="cross-town shipping">Cross-town shipping</option>
+          </select>
+        </label>
+        <button data-action="app-request" class="btn-primary">Request service (client signature)</button>
+      </div>
+
+      <div class="app-step">
+        <h4><span class="step-num">2</span>Rate the rider</h4>
+        <p class="hint">The client spends its Rating Right (single use) and includes the 1–5 score in an <code>OP_RETURN</code>, which lands as <code>RATING_ISSUED</code> in the Ledger.</p>
+        <label>Score
+          <input type="range" id="app-score" min="1" max="5" step="1" value="5" />
+          <output id="app-score-output">5</output>
+        </label>
+        <button data-action="app-rate" class="btn-primary">Rate the rider</button>
+      </div>
+
+      <div class="app-step">
+        <h4><span class="step-num">3</span>My reputation</h4>
+        <p class="hint">Unweighted average of the scores received from the rider (with its Rating Right), with every fact auditable.</p>
+        <button data-action="app-reputation-client">View my reputation</button>
+        <div id="app-reputation-card-client" class="reputation-empty">You haven't received ratings from the rider yet.</div>
+      </div>
+    </section>
+
+    <section class="duo-slot slot-rider">
+      <h3><span class="slot-badge">USER 2</span>Rider</h3>
+      <label>Wallet acting as rider
+        <select id="app-rider"></select>
+      </label>
+
+      <div class="app-step">
+        <h4><span class="step-num">1</span>New rides available</h4>
+        <p class="hint">When the client requests, the app notifies the rider with a <strong>push-like notification</strong>. Upon <strong>Accept</strong>, the rider contributes its signature: together they activate the <strong>on-chain Receipt</strong> (recorded interaction).</p>
+        <div id="app-notifications" class="app-notifications">
+          <p class="hint">No requests for this wallet. Request a ride from the client column to see the notification here.</p>
+        </div>
+      </div>
+
+      <div class="app-step">
+        <h4><span class="step-num">2</span>Rate the client</h4>
+        <p class="hint">The rider also receives its Rating Right (single use) in the Receipt genesis. It can spend it to rate the client back, which lands as <code>RATING_ISSUED</code> in the Ledger.</p>
+        <label>Score
+          <input type="range" id="app-score-client" min="1" max="5" step="1" value="5" />
+          <output id="app-score-client-output">5</output>
+        </label>
+        <button data-action="app-rate-client" class="btn-primary">Rate the client</button>
+      </div>
+
+      <div class="app-step">
+        <h4><span class="step-num">3</span>My reputation</h4>
+        <p class="hint">Unweighted average of the received scores, with every fact auditable down to the transaction that produced it.</p>
+        <button data-action="app-reputation">View my reputation</button>
+        <div id="app-reputation-card" class="reputation-empty">You haven't picked a rider with rides yet.</div>
+      </div>
+    </section>
+
+  </div>
+
+  <h3 class="section-title">Identities surrounding the interaction</h3>
+
+  <div class="duo bottom-duo">
+
+    <section class="duo-slot slot-platform">
+      <h3><span class="slot-badge">VALIDATOR</span>The platform validates</h3>
+      <p class="hint">A "platform" wallet corroborates (with its own UTXO) that the last ride happened. It's a standalone fact: <code>PLATFORM_CONFIRMATION</code>.</p>
+      <label>Validator (delivery platform)
+        <select id="app-platform"></select>
+      </label>
+      <button data-action="app-confirm" class="btn-primary">Confirm the last ride</button>
+      <h4>Confirmation history for this session</h4>
+      <ul class="store-list" id="app-confirm-history">
+        <li>None yet.</li>
+      </ul>
+    </section>
+
+    <section class="duo-slot slot-trust">
+      <h3><span class="slot-badge">ENDORSEMENT</span>Trust vote</h3>
+      <p class="hint">The one giving the vote doesn't have to be the client: in delivery it's usually a friend, an ex-boss or a coworker of the endorsed. Every vote is a unilateral <code>TRUST_LINK</code>, without their consent or Rating Rights.</p>
+      <label>Who gives the vote (friend / contact)
+        <select id="app-trust-voter"></select>
+      </label>
+      <label>About whom (identity to endorse)
+        <select id="app-trust-target"></select>
+      </label>
+      <button data-action="app-trust" class="btn-primary">Give trust vote</button>
+      <p class="hint">Self-trust (voter = endorsed) becomes invalid: the indexer rejects it.</p>
+      <h4>Votes for this session</h4>
+      <ul class="store-list" id="app-trust-history">
+        <li>None yet.</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <h3>Ride history for this session (both users share the same chain)</h3>
+  <ul class="store-list" id="app-history">
+    <li>No rides yet.</li>
+  </ul>
+
+  <details class="app-crud">
+    <summary>View raw — what the app sends to the API</summary>
+    <pre class="app-raw" id="app-raw">Every app action shows here the exact call (method, route, payload and response) it triggered.</pre>
+  </details>
+
+</main>
+</div>
+
+<div class="view-wrap" id="view-indexer">
+<main class="indexer-page page">
+
+  <section class="app-header">
+    <h2>Indexer — reputation and Confidence Index</h2>
+    <p class="hint">The indexer recognizes on-chain facts without weighting. For every profile it shows <strong>two separate numbers</strong>: the <strong>Reputation</strong> (1–5 star average, <em>always the same</em>, depending on nobody's criterion) and the <strong>Confidence Index</strong> (CI, 0–1): the confidence this indexer assigns to that reputation according to <strong>on-chain signals</strong> it chooses and weights itself. The CI <strong>doesn't touch the stars</strong>: it's local indexer interpretation (SPEC-007).</p>
+  </section>
+
+  <div class="duo indexer-grid">
+
+    <section class="duo-slot slot-profile slot-profile-main">
+      <h3><span class="slot-badge">PROFILE</span>Reputation and CI of an identity</h3>
+
+      <label class="param-row">Pick an identity (wallet)
+        <select id="interpret-pkh"></select>
+      </label>
+      <label class="param-row">Saved configuration
+        <select id="interpret-config"></select>
+      </label>
+      <button data-action="interpret" class="btn-primary wide">View reputation and CI</button>
+
+      <div id="interpret-card" class="reputation-empty">Pick a wallet and a configuration, and click "View reputation and CI".</div>
+    </section>
+
+    <section class="duo-slot slot-criteria">
+      <h3><span class="slot-badge">CRITERIA</span>CI signals</h3>
+      <p class="hint">Choose which on-chain signals enter each profile's CI computation. In CONFIGURATION you define how much each chosen signal weighs; with no weighted signal the CI stays undefined (the reputation doesn't change).</p>
+      <div class="param-list" id="interpret-criteria"></div>
+      <label class="check param-row"><input type="checkbox" id="interpret-anti-sybil" /> <strong>Anti-sybil</strong>: discard from the CI the ratings of wallets without Identity <em>(the stars don't change)</em></label>
+    </section>
+
+    <section class="duo-slot slot-config">
+      <h3><span class="slot-badge">CONFIGURATION</span>Signal weights</h3>
+      <p class="hint">CI = weighted average of the active signals. Weight 0 = the signal doesn't count.</p>
+      <div id="interpret-weights"></div>
+
+      <div class="config-save">
+        <p class="hint">Save this criterion with a name to reuse it in the Profile. The <strong>"Sample"</strong> preset (builtin, read-only) starts loaded to understand the tool.</p>
+        <label class="param-row">Configuration name
+          <input type="text" id="interpret-config-name" maxlength="24" placeholder="e.g. strict delivery" />
+        </label>
+        <p>
+          <button data-action="save-config" class="btn-primary">Save configuration</button>
+        </p>
+        <ul class="store-list" id="interpret-config-list"></ul>
+      </div>
+    </section>
+
+  </div>
+
+</main>
+</div>
+
+<div class="view-wrap" id="view-identities">
+<main class="identities-page page">
+
+  <section class="app-header">
+    <h2>Minted identities</h2>
+    <p class="hint">Every identity is an <strong>immutable NFT</strong> anchored to a wallet, with its <strong>on-chain history</strong> (genesis, collateral top-ups and burns) rebuilt from the Ledger. The <strong>burned</strong> ones stop being active but their history stays auditable: returned collateral and burn tx.</p>
+  </section>
+
+  <div class="identities-layout">
+
+    <div class="panel identity-mint">
+      <h3>Mint identity</h3>
+      <p class="hint">RFC-001 — anchor an immutable NFT to a wallet. The vault covenant locks a BCH collateral: it never goes down on-chain, it can be increased and it returns to the owner when the identity is burned.</p>
+      <label>Wallet
+        <select id="ident-mint-wallet"></select>
+      </label>
+      <label>Collateral (sats)
+        <input type="number" id="ident-mint-collateral" min="1" value="1000" />
+      </label>
+      <button data-action="mint-identity-here" class="btn-primary">Mint identity</button>
+    </div>
+
+    <div class="identity-lists">
+
+      <div class="panel">
+        <h3>Active identities</h3>
+        <p class="hint">Wallet with an active NFT and locked collateral. Increase the collateral (it can never drop on-chain) or burn the identity to recover it.</p>
+        <label>Filter by validator
+          <input id="ident-filter-validator" type="text" placeholder="pkh or address, several comma-separated" />
+        </label>
+        <p class="hint">An identity is "validated" by those who issued it a <strong>trust declaration</strong> (endorsement). The note appears on each card and the filter trims the list to the identities validated by those addresses.</p>
+        <p class="hint" id="ident-filter-count"></p>
+        <ul class="identity-list" id="ident-active-list"></ul>
+      </div>
+
+      <div class="panel">
+        <h3>Burned identities</h3>
+        <p class="hint">NFT burned on-chain: the wallet can mint a new identity whenever it wants. Its collateral returned to the owner's wallet. The history is kept in <code>data/repid-state.json</code> and survives restarts; use "Reset demo" to clear it.</p>
+        <ul class="identity-list" id="ident-burned-list"></ul>
+      </div>
+
+    </div>
+
+  </div>
+
+</main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

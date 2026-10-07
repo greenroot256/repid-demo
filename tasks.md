@@ -388,3 +388,19 @@
 > - Docs updated: `AGENTS.md` (monorepo + package paths), `README.md` (structure tree + docs list), `CONTRIBUTING.md` (new §8, English-everywhere policy conformed to AGENTS.md §5), stale references to the deleted `docs/PACKAGE-SDD.md` removed.
 >
 > **Verification**: `npm install` (2 packages linked, 0 vulnerabilities); `node --check` ALL PASS (indexer src, protocol index, 4 tests, server); **`npx vitest run` → 128/128 PASS** (10 files — 6 root + 4 in `packages/indexer/test/`), which also validates the workspace resolution (`@repid/indexer`/`@repid/protocol` resolved by name from the server E2E booting the real server).
+
+- [x] **TASK-047** [SPEC-008/009/010] **Protocol `0.4.0` executed + demo aligned (audit lote 2, Tarea E/F)**: the conformance task E that the lote-2 audit declared pending is executed, and this repository (the demo) is aligned with the new protocol version without needing a code migration. *(Executed 2026-10-07.)*
+
+> **Implemented — protocol side (`repid-protocol`, `repid-sdk`):**
+> - **Vectores B.3 de `SPEC-009` ejecutados**: `test/b3_0_4_0_vectors.test.ts` (SDK, 18 tests) con cada fila del annex enlazada a su `RF-W64`–`RF-W76` en el manifest de trazabilidad; las dos formas de `REPID_RATING2` (score + `commentHash`), `REPID_RETRACT1` (referencia 32 B, `valid` por memoria, primer sólo-una-vez), la auto-corroboración de una parte del Receipt (`valid:false`, RF-W71), el contexto de interacción (`0x10`/`0x11`, lo demás → no fact) y el binding versionado del vault (la versión se registra en la génesis, RF-W76).
+> - **Burn delay `RF-O831` en VM**: `conformance/identity-vault-burn-delay.test.mjs` (6 tests) ejecuta el gate `age >= 144`.
+> - **Bump**: `protocol/protocol-version.json` → `0.4.0`; `conformance/schema.test.mjs` lo comprueba; `SPEC-010` y `SPEC-009` §12.3/Annex B.3 y `SPEC-008` actualizados (ya no "0.3.0 only", vectores ya no "pending"); `protocol/requirements.json` regenerado (216 declaraciones).
+> - **Resultado**: SDK **15 files, 150 tests, 0 failures** (`npm run typecheck` + `npm run check:drift` + `npm test`); protocolo **52 tests, 0 failures** (`npm test`, incluye `--check` de specs, requirements y bytecode).
+>
+> **Implemented — this repository (demo):**
+> - The demo consumes the same `@repid/sdk` 0.4.0 (recognizer output now includes the 8th fact type `RATING_RETRACTION`). The Ledger labels and renders it (`FACT_LABELS` + `renderFact` in `server/public/app.js`); no backend change was needed — the recognizer API is backward-compatible.
+> - `docs/EXTERNAL-INDEXER-GUIDE.md` updated to **eight facts / five tags**: `RATING_RETRACTION` row in §3 and §4, the Retracted-ratings map and expanded Receipts record in §5, payload table with `REPID_RATING2`/`REPID_RETRACT1` in §6.2, new §6.6 (retraction semantics), the interaction context in §7.4, trap §8.6 (version recorded at genesis, never trial-matched), precedence table (7 recognizers) in §9.1, malformed/invalid §10, and the references §13.
+> - Removed 4 empty orphan `.ts` test stubs (`test/covenant_binding.test.ts` etc., untracked) that made vitest report "No test suite found"; the canonical suites live in `repid-sdk`.
+> - `AGENTS.md` counts synchronized (150 SDK tests / 15 files, 52 protocol tests).
+>
+> **Verification**: `node --test` protocolo 52/52; SDK `npm test` 150/150 (15 files) tras re-sync (`npm run sync:protocol` + `npm run check:drift`); demo `npm test` → **73 tests, 0 failures** (35 executed + 38 tBCH-gated, 4 files) with the 0.4.0 SDK installed.

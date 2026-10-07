@@ -117,6 +117,7 @@ const FACT_LABELS = {
   IDENTITY_BURNED: 'Identity burned',
   RECEIPT_GENESIS: 'Interaction recorded',
   RATING_ISSUED: 'Rating issued',
+  RATING_RETRACTION: 'Rating retracted',
   PLATFORM_CONFIRMATION: 'Interaction confirmed',
   TRUST_LINK: 'Trust declared',
 };
@@ -135,6 +136,8 @@ function renderFact(fact) {
     detail = `${walletLabel(a.ownerPkh)} ⇄ ${walletLabel(b.ownerPkh)} · category=${short(fact.receiptCategory)}`;
   } else if (fact.type === 'RATING_ISSUED') {
     detail = `${walletLabel(fact.raterPkh)} → ${walletLabel(fact.rateePkh)} · score=${fact.score}`;
+  } else if (fact.type === 'RATING_RETRACTION') {
+    detail = `${walletLabel(fact.raterPkh)} retracted rating on ${short(fact.receiptTxid)}${fact.valid ? '' : ' · INVALID'}`;
   } else if (fact.type === 'PLATFORM_CONFIRMATION') {
     detail = `${walletLabel(fact.platformPkh)} corroborated ${short(fact.receiptTxid)}${fact.valid ? '' : ' · INVALID'}`;
   } else if (fact.type === 'TRUST_LINK') {
